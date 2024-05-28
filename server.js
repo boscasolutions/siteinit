@@ -18,7 +18,11 @@ function start(route, handlerObj) {
         });
     }
     http.createServer(handleReq).listen(port, () => {
+
         console.log(`Listening on port ${port}`);
+
+        require('reboot').reboot();
+        
     });
 }
 

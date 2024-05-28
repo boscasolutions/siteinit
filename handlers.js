@@ -57,4 +57,10 @@ Preparation steps:
 1 - services should have run condition
 2 - site run service should also have run conditions
 
+
+
+
+sudo apt install nodejs -y
+sudo apt install npm -y
+
 */
