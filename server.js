@@ -18,13 +18,7 @@ function start(route, handlerObj) {
         });
     }
     http.createServer(handleReq).listen(port, () => {
-
         console.log(`Listening on port ${port}`);
-
-
-        require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
-
-
     });
 }
 
