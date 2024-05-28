@@ -82,6 +82,7 @@ function message(res, payload) {
             var privateKey = fs.readFileSync('/home/bosca/.ssh/id_rsa').toString();
             var authorityCert = fs.readFileSync('/home/bosca/cert.pem').toString();
             var authorityKey = fs.readFileSync('/home/bosca/key.pem').toString();
+            settings = require('./settings.json');
         
             var siteObj = { 
                 id: settings.siteId,
