@@ -12,5 +12,8 @@
     "http"
   ],
   "author": "Tanner Dolby",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.88.2"
+  }
 }

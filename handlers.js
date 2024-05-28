@@ -2,11 +2,13 @@ const fs = require("fs");
 
 const handlerObj = {
     "/": home,
-    "/message": message
+    "/run": message
 };
 
+settings = require('./settings.json');
+var request = require('request');
+
 function home(res) {
-    console.log("Executing 'home' handler");
     fs.readFile(__dirname + "/index.html", (err, data) => {
         if (err) {
             res.writeHead(404);
@@ -18,24 +20,83 @@ function home(res) {
 }
 
 function message(res, payload) {
-    console.log("Executing 'message' handler");
     let msg = new URLSearchParams(payload);
-    let data = {
-        pass: msg.get('pass'),
+
+    // 1 - check secret
+
+    if(msg.get('pass') !== settings.secret) {
+        fs.readFile(__dirname + "/fail.html", (err, data) => {
+            if (err) {
+                res.writeHead(404);
+                res.end(JSON.stringify(err));
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(data);
+        });
+
+        return;
+    }
+
+    // 2 - create site config
+
+    let config = {
         apiKey: msg.get('apiKey'),
-        siteName: msg.get('siteName'),
-        net2IP: msg.get('net2IP'),
-        net2ApiBaseUrl: msg.get('net2ApiBaseUrl'),
-        net2ApiHubUrl: msg.get('net2ApiHubUrl'),
-        net2User: msg.get('net2User'),
-        net2Pass: msg.get('net2Pass'),
-        net2ClientId: msg.get('net2ClientId'),
+        siteId: settings.siteId,
+        subdomain: settings.subdomain,
+        Net2ApiBaseURL: 'https://' + msg.get('net2IP') + '/api/V1/',
+        Net2ApiHubBaseURL: 'https://' + msg.get('net2IP'),
+        NET2_USER: msg.get('net2User'),
+        NET2_USER_PW: msg.get('net2Pass'),
+        NET2_CIENT_ID: msg.get('net2ClientId'),
+        CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
     };
 
-    require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
+    fs.writeFile("/etc/bosca/settings.json", JSON.stringify(config, null, 2), (err) => {
+        if (err) {
+            res.writeHead(404);
+            res.end(JSON.stringify(err));
+        }
+    });
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
+    // 3 - register site
+
+    var privateKey = fs.readFileSync('/home/bosca/.ssh/id_rsa').toString();
+    var authorityCert = fs.readFileSync('/home/bosca/cert.pem').toString();
+    var authorityKey = fs.readFileSync('/home/bosca/key.pem').toString();
+
+    var siteObj = { 
+        id: settings.siteId,
+        name: msg.get('siteName'),
+        subDomain: settings.subdomain,
+        privateKey: privateKey,
+        authorityCert: authorityCert,
+        authorityKey: authorityKey
+    };
+    request({
+        url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
+        method: "POST",
+        json: true,  
+        headers: {
+            'ApiKey': msg.get('apiKey')
+        },
+        body: siteObj
+    }, function (error, response, body){
+        if(response.statusCode == 200){
+
+            // 4 - reboot
+            require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
+
+            fs.readFile(__dirname + "/done.html", (err, data) => {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(data);
+            });
+        }else{
+            fs.readFile(__dirname + "/fail.html", (err, data) => {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(data);
+            });
+        }
+    });
 }
 
 module.exports = { 
@@ -43,24 +104,3 @@ module.exports = {
     message,
     handlerObj
 };
-
-
-/*
-Steps to up and run site:
-
-1 - generate settings file
-2 - register site
-3 - reboot system
-
-Preparation steps: 
-
-1 - services should have run condition
-2 - site run service should also have run conditions
-
-
-
-
-sudo apt install nodejs -y
-sudo apt install npm -y
-
-*/
