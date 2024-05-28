@@ -20,6 +20,7 @@ function home(res) {
 }
 
 function message(res, payload) {
+    
     let msg = new URLSearchParams(payload);
 
     // 1 - check secret
@@ -60,43 +61,62 @@ function message(res, payload) {
 
     // 3 - register site
 
-    var privateKey = fs.readFileSync('/home/bosca/.ssh/id_rsa').toString();
-    var authorityCert = fs.readFileSync('/home/bosca/cert.pem').toString();
-    var authorityKey = fs.readFileSync('/home/bosca/key.pem').toString();
-
-    var siteObj = { 
-        id: settings.siteId,
-        name: msg.get('siteName'),
-        subDomain: settings.subdomain,
-        privateKey: privateKey,
-        authorityCert: authorityCert,
-        authorityKey: authorityKey
-    };
-    request({
-        url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
-        method: "POST",
-        json: true,  
-        headers: {
-            'ApiKey': msg.get('apiKey')
-        },
-        body: siteObj
-    }, function (error, response, body){
-        if(response.statusCode == 200){
-
-            // 4 - reboot
-            require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
-
-            fs.readFile(__dirname + "/done.html", (err, data) => {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            });
-        }else{
-            fs.readFile(__dirname + "/fail.html", (err, data) => {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            });
+    var cnfFile = fs.readFileSync("san.cnf").toString();
+    fs.writeFile("san.cnf", cnfFile.replace('net-2-ip', msg.get('net2IP')), (err) => {
+        if (err) {
+            res.writeHead(404);
+            res.end(JSON.stringify(err));
         }
     });
+    
+    require('child_process').exec('sh generate-cert.sh',
+        (error, stdout, stderr) => {
+            if (error !== null) {
+                fs.readFile(__dirname + "/fail.html", (err, data) => {
+                    res.writeHead(200, { 'Content-Type': 'text/html' });
+                    res.end(data);
+                });
+                return;
+            }
+
+            var privateKey = fs.readFileSync('/home/bosca/.ssh/id_rsa').toString();
+            var authorityCert = fs.readFileSync('/home/bosca/cert.pem').toString();
+            var authorityKey = fs.readFileSync('/home/bosca/key.pem').toString();
+        
+            var siteObj = { 
+                id: settings.siteId,
+                name: msg.get('siteName'),
+                subDomain: settings.subdomain,
+                privateKey: privateKey,
+                authorityCert: authorityCert,
+                authorityKey: authorityKey
+            };
+            request({
+                url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
+                method: "POST",
+                json: true,  
+                headers: {
+                    'ApiKey': msg.get('apiKey')
+                },
+                body: siteObj
+            }, function (error, response, body){
+                if(response.statusCode == 200){
+        
+                    // 4 - reboot
+                    require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
+        
+                    fs.readFile(__dirname + "/done.html", (err, data) => {
+                        res.writeHead(200, { 'Content-Type': 'text/html' });
+                        res.end(data);
+                    });
+                }else{
+                    fs.readFile(__dirname + "/fail.html", (err, data) => {
+                        res.writeHead(200, { 'Content-Type': 'text/html' });
+                        res.end(data);
+                    });
+                }
+            });
+        });
 }
 
 module.exports = { 
