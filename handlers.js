@@ -32,7 +32,7 @@ function message(res, payload) {
         net2ClientId: msg.get('net2ClientId'),
     };
 
-    // require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
+    require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
