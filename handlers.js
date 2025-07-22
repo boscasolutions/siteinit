@@ -50,6 +50,7 @@ function message(res, payload) {
         NET2_USER_PW: msg.get('net2Pass'),
         NET2_CIENT_ID: msg.get('net2ClientId'),
         CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
+        tenantId: msg.get('tenantId'),
     };
 
     fs.writeFile("/etc/bosca/settings.json", JSON.stringify(config, null, 2), (err) => {
@@ -90,7 +91,8 @@ function message(res, payload) {
                 subDomain: settings.subdomain,
                 privateKey: privateKey,
                 authorityCert: authorityCert,
-                authorityKey: authorityKey
+                authorityKey: authorityKey,
+                tenantId: msg.get('tenantId'),
             };
             request({
                 url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
