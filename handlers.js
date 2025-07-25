@@ -92,14 +92,14 @@ function message(res, payload) {
                 privateKey: privateKey,
                 authorityCert: authorityCert,
                 authorityKey: authorityKey,
-                tenantId: msg.get('tenantId'),
             };
             request({
                 url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
                 method: "POST",
                 json: true,  
                 headers: {
-                    'ApiKey': msg.get('apiKey')
+                    'ApiKey': msg.get('apiKey'),
+                    'X-TenantId': msg.get('tenantId')
                 },
                 body: siteObj
             }, function (error, response, body){
