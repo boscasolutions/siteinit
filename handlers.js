@@ -51,6 +51,7 @@ function message(res, payload) {
         NET2_CIENT_ID: msg.get('net2ClientId'),
         CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
         tenantId: msg.get('tenantId'),
+        UseServiceControl: false
     };
 
     fs.writeFile("/etc/bosca/settings.json", JSON.stringify(config, null, 2), (err) => {
