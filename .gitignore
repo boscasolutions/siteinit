@@ -1,0 +1,15 @@
+node_modules/
+
+# Site-specific config (never commit real credentials)
+settings.json
+
+# Generated at runtime
+san.generated.cnf
+cert.pem
+key.pem
+net2.key
+net2.crt
+
+# Logs / OS noise
+*.log
+.DS_Store

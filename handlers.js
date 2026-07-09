@@ -1,130 +1,148 @@
 const fs = require("fs");
+const fsp = fs.promises;
+const path = require("path");
+const http = require("http");
+const https = require("https");
+const { URL } = require("url");
+const { promisify } = require("util");
+const exec = promisify(require("child_process").exec);
+
+const settings = require("./settings.json");
+
+// Deployment paths on the target appliance (user "bosca").
+const SETTINGS_OUTPUT_PATH = "/etc/bosca/settings.json";
+const SSH_KEY_PATH = "/home/bosca/.ssh/id_rsa";
+const CERT_PATH = "/home/bosca/cert.pem";
+const KEY_PATH = "/home/bosca/key.pem";
+
+// The template stays pristine; each run renders a fresh copy with the Net2 IP.
+const SAN_TEMPLATE_PATH = path.join(__dirname, "san.cnf");
+const SAN_GENERATED_PATH = path.join(__dirname, "san.generated.cnf");
 
 const handlerObj = {
     "/": home,
     "/run": message
 };
 
-settings = require('./settings.json');
-var request = require('request');
+async function serveHtml(res, file, statusCode = 200) {
+    try {
+        const data = await fsp.readFile(path.join(__dirname, file));
+        res.writeHead(statusCode, { "Content-Type": "text/html" });
+        res.end(data);
+    } catch (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify(err));
+    }
+}
+
+function postJson(urlString, headers, bodyObj) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(urlString);
+        const body = JSON.stringify(bodyObj);
+        const client = url.protocol === "http:" ? http : https;
+
+        const req = client.request(
+            url,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(body),
+                    ...headers
+                }
+            },
+            (response) => {
+                let data = "";
+                response.on("data", (chunk) => { data += chunk; });
+                response.on("end", () => resolve({ statusCode: response.statusCode, body: data }));
+            }
+        );
+
+        req.on("error", reject);
+        req.write(body);
+        req.end();
+    });
+}
 
 function home(res) {
-    fs.readFile(__dirname + "/index.html", (err, data) => {
-        if (err) {
-            res.writeHead(404);
-            res.end(JSON.stringify(err));
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(data);
-    });
+    serveHtml(res, "index.html");
 }
 
-function message(res, payload) {
-    
-    let msg = new URLSearchParams(payload);
+async function message(res, payload) {
+    const msg = new URLSearchParams(payload);
 
     // 1 - check secret
-
-    if(msg.get('pass') !== settings.secret) {
-        fs.readFile(__dirname + "/fail.html", (err, data) => {
-            if (err) {
-                res.writeHead(404);
-                res.end(JSON.stringify(err));
-            }
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(data);
-        });
-
-        return;
+    if (msg.get("pass") !== settings.secret) {
+        return serveHtml(res, "fail.html");
     }
 
-    // 2 - create site config
+    try {
+        // 2 - create site config
+        const net2IP = msg.get("net2IP");
+        const net2Port = msg.get("net2Port");
 
-    let config = {
-        apiKey: msg.get('apiKey'),
-        siteId: settings.siteId,
-        subdomain: settings.subdomain,
-        Net2ApiBaseURL: 'https://' + msg.get('net2IP') + ':' + msg.get('net2Port') + '/api/V1/',
-        Net2ApiHubBaseURL: 'https://' + msg.get('net2IP') + ':' + msg.get('net2Port'),
-        NET2_USER: msg.get('net2User'),
-        NET2_USER_PW: msg.get('net2Pass'),
-        NET2_CIENT_ID: msg.get('net2ClientId'),
-        CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
-        tenantId: msg.get('tenantId'),
-        UseServiceControl: 'false'
-    };
+        const config = {
+            apiKey: msg.get("apiKey"),
+            siteId: settings.siteId,
+            subdomain: settings.subdomain,
+            Net2ApiBaseURL: `https://${net2IP}:${net2Port}/api/V1/`,
+            Net2ApiHubBaseURL: `https://${net2IP}:${net2Port}`,
+            NET2_USER: msg.get("net2User"),
+            NET2_USER_PW: msg.get("net2Pass"),
+            NET2_CLIENT_ID: msg.get("net2ClientId"),
+            CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
+            tenantId: msg.get("tenantId"),
+            UseServiceControl: "false"
+        };
 
-    fs.writeFile("/etc/bosca/settings.json", JSON.stringify(config, null, 2), (err) => {
-        if (err) {
-            res.writeHead(404);
-            res.end(JSON.stringify(err));
+        await fsp.writeFile(SETTINGS_OUTPUT_PATH, JSON.stringify(config, null, 2));
+
+        // 3 - generate a TLS cert for the Net2 controller IP
+        const template = await fsp.readFile(SAN_TEMPLATE_PATH, "utf8");
+        await fsp.writeFile(SAN_GENERATED_PATH, template.replace("net-2-ip", net2IP));
+        await exec(`sh generate-cert.sh ${SAN_GENERATED_PATH}`);
+
+        // 4 - register the site with the cloud
+        const [privateKey, authorityCert, authorityKey] = await Promise.all([
+            fsp.readFile(SSH_KEY_PATH, "utf8"),
+            fsp.readFile(CERT_PATH, "utf8"),
+            fsp.readFile(KEY_PATH, "utf8")
+        ]);
+
+        const siteObj = {
+            id: settings.siteId,
+            name: msg.get("siteName"),
+            subDomain: settings.subdomain,
+            privateKey,
+            authorityCert,
+            authorityKey
+        };
+
+        const response = await postJson(
+            settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
+            {
+                "ApiKey": msg.get("apiKey"),
+                "X-TenantId": msg.get("tenantId")
+            },
+            siteObj
+        );
+
+        if (response.statusCode !== 200) {
+            console.error(`RegisterSite failed with status ${response.statusCode}: ${response.body}`);
+            return serveHtml(res, "fail.html");
         }
-    });
 
-    // 3 - register site
-
-    var cnfFile = fs.readFileSync("san.cnf").toString();
-    fs.writeFile("san.cnf", cnfFile.replace('net-2-ip', msg.get('net2IP')), (err) => {
-        if (err) {
-            res.writeHead(404);
-            res.end(JSON.stringify(err));
-        }
-    });
-    
-    require('child_process').exec('sh generate-cert.sh',
-        (error, stdout, stderr) => {
-            if (error !== null) {
-                fs.readFile(__dirname + "/fail.html", (err, data) => {
-                    res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end(data);
-                });
-                return;
-            }
-
-            var privateKey = fs.readFileSync('/home/bosca/.ssh/id_rsa').toString();
-            var authorityCert = fs.readFileSync('/home/bosca/cert.pem').toString();
-            var authorityKey = fs.readFileSync('/home/bosca/key.pem').toString();
-            settings = require('./settings.json');
-        
-            var siteObj = { 
-                id: settings.siteId,
-                name: msg.get('siteName'),
-                subDomain: settings.subdomain,
-                privateKey: privateKey,
-                authorityCert: authorityCert,
-                authorityKey: authorityKey,
-            };
-            request({
-                url: settings.CLOUD_API_BASE_URL + "/Site/RegisterSite",
-                method: "POST",
-                json: true,  
-                headers: {
-                    'ApiKey': msg.get('apiKey'),
-                    'X-TenantId': msg.get('tenantId')
-                },
-                body: siteObj
-            }, function (error, response, body){
-                if(response.statusCode == 200){
-        
-                    // 4 - reboot
-                    require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { console.log(msg) });
-        
-                    fs.readFile(__dirname + "/done.html", (err, data) => {
-                        res.writeHead(200, { 'Content-Type': 'text/html' });
-                        res.end(data);
-                    });
-                }else{
-                    fs.readFile(__dirname + "/fail.html", (err, data) => {
-                        res.writeHead(200, { 'Content-Type': 'text/html' });
-                        res.end(data);
-                    });
-                }
-            });
-        });
+        // 5 - respond, then reboot
+        await serveHtml(res, "done.html");
+        exec("sudo /sbin/shutdown -r now").catch((err) => console.error(err));
+    } catch (err) {
+        console.error(err);
+        return serveHtml(res, "fail.html");
+    }
 }
 
-module.exports = { 
-    home, 
+module.exports = {
+    home,
     message,
     handlerObj
 };

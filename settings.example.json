@@ -1,0 +1,6 @@
+{
+  "secret": "shared-secret-password-for-the-setup-form",
+  "siteId": "00000000-0000-0000-0000-000000000000",
+  "subdomain": "example-site",
+  "CLOUD_API_BASE_URL": "https://api.cloudloq.example.com"
+}

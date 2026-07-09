@@ -1,4 +1,10 @@
-openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout key.pem -out cert.pem -config san.cnf
+#!/bin/sh
+set -e
+
+# Config file to use for the cert (defaults to the pristine template).
+CONFIG="${1:-san.cnf}"
+
+openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout key.pem -out cert.pem -config "$CONFIG"
 openssl x509 -in cert.pem -text -noout
 openssl pkey -in key.pem -out net2.key
 openssl crl2pkcs7 -nocrl -certfile cert.pem | openssl pkcs7 -print_certs -out net2.crt

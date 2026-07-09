@@ -1,19 +1,24 @@
 {
-  "name": "basic-node-server",
+  "name": "siteinit",
   "version": "1.0.0",
-  "description": "A simple HTTP server",
+  "description": "First-boot provisioning wizard for Bosca/CloudLoq edge site servers",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"
   },
   "keywords": [
-    "nodejs",
-    "http"
+    "bosca",
+    "cloudloq",
+    "provisioning",
+    "net2"
   ],
-  "author": "Tanner Dolby",
+  "author": "Bosca",
   "license": "ISC",
-  "dependencies": {
-    "request": "^2.88.2"
+  "engines": {
+    "node": ">=12"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
