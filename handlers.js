@@ -82,17 +82,51 @@ async function message(res, payload) {
         const net2Port = msg.get("net2Port");
 
         const config = {
-            apiKey: msg.get("apiKey"),
+            // Per-site identity (from the init input settings.json + form)
             siteId: settings.siteId,
             subdomain: settings.subdomain,
+            tenantId: msg.get("tenantId"),
+            CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
+            apiKey: msg.get("apiKey"),
+
+            // Net2 connection (from the form)
             Net2ApiBaseURL: `https://${net2IP}:${net2Port}/api/V1/`,
             Net2ApiHubBaseURL: `https://${net2IP}:${net2Port}`,
             NET2_USER: msg.get("net2User"),
             NET2_USER_PW: msg.get("net2Pass"),
             NET2_CLIENT_ID: msg.get("net2ClientId"),
-            CLOUD_API_BASE_URL: settings.CLOUD_API_BASE_URL,
-            tenantId: msg.get("tenantId"),
-            UseServiceControl: "false"
+
+            // Site defaults consumed by bosca.shield's ConfigProvider.
+            // Keys/values mirror bosca.shield/etc/bosca/settings.json.
+            Net2LocalTimeOffset: "0.0",
+            GatewayAddress: "localhost",
+            GatewayPort: "4000",
+            GatewayCertificateAuthorityFile: "certs/ca.crt",
+            SupremaHistoricalSyncBatchSize: "1000",
+            Net2SyncTimerInMinutes: "1",
+            SupremaLogServerMinutes: "1",
+            FaceScannerBackgroundWorkerMinutes: "1",
+            Net2EventsSyncSagaRefreshMinutes: "1",
+            Net2EventsSyncSagaProcessorResponseTimeOut: "5",
+            SupremaEventsSyncSagaRefreshMinutes: "1",
+            SupremaEventsSyncSagaProcessorResponseTimeOut: "5",
+            RollCallEventId: "1",
+            EventsFilterInDays: "-400",
+            EventsImportMaxRowCount: "950",
+            DefaultForceInTime: "07:35",
+            DefaultForceOutTime: "18:45",
+            UserEnteredZoneTimeout: "23:59",
+            StatusQueueSize: "16",
+            CodeMapFile: "event/event_code.json",
+            DemoDevicePort: "51211",
+            DemoDeviceUseSSL: "false",
+            GCPProjectId: "cairn-integration",
+            LogFilePath: "../logs/",
+            LogLabelServiceKey: "bosca-shield",
+            LogLabelServerSiteIdLabel: "bosca-shield-server-siteid",
+            CloudMasterMode: "true",
+            UseServiceControl: "false",
+            DefaultEventSyncEnabled: "true"
         };
 
         await fsp.writeFile(SETTINGS_OUTPUT_PATH, JSON.stringify(config, null, 2));
