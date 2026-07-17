@@ -1,0 +1,21 @@
+---
+description: Git workflow - branch + PR only, no direct commits to main
+alwaysApply: true
+---
+
+# Git workflow: PRs only, never commit directly to `main`
+
+- Never run `git commit`/`git push` directly against `main` (or `master`).
+  Always create a feature branch first (e.g. `git checkout -b
+  <short-descriptive-name>`), commit there, push the branch, and open a PR
+  with `gh pr create`.
+- This applies even for small changes: docs, config, one-line fixes. No
+  exceptions without the user explicitly asking to push straight to main for
+  that specific change.
+- If you're already on `main` with uncommitted changes, branch from the
+  current state (`git checkout -b <name>`) before committing — don't commit
+  on `main` and branch afterward.
+- Follow the repo's usual PR body conventions (Summary + Test plan) as
+  described in the general PR-creation guidance.
+- If asked to "commit and push," interpret that as "branch, commit, push the
+  branch, and open a PR" unless the user says otherwise.
