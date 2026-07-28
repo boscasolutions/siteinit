@@ -22,21 +22,35 @@ alwaysApply: true
 
 ## Branch and PR naming
 
-- **When the work is tied to a Jira ticket** (the user mentions a ticket key
-  like `SDP-1234`, pastes a Jira link, or asks to work a specific ticket):
-  - Branch name: `<ticket-key-lowercase>-<short-kebab-case-title>`, e.g.
-    `sdp-1021-fix-gate-device-replace`. No `feature/`/`fix/` prefix in front
-    of the ticket key — the ticket key itself is the prefix. Keep the title
-    short (roughly 3-6 words).
-  - PR title: `<TICKET-KEY-UPPERCASE>: <description>`, e.g.
-    `SDP-1021: Fix gate device replace bug`. This matches Jira's
-    GitHub smart-commit/branch-linking conventions.
-  - If the user supplies the ticket key partway through the work (before a
-    PR is opened), use it for the branch/PR name even if work started under
-    a generic name — rename the branch (`git branch -m`) rather than leaving
-    a placeholder like `sdp-xxx-...`.
-- **When there's no Jira ticket** (docs tweaks, urgent hotfixes, small
-  chores): keep the existing free-form, prefixed convention already used in
-  this repo — `docs/<short-title>`, `fix/<short-title>`,
-  `feature/<short-title>`, `security/<short-title>`, `hotfix-<short-title>`,
-  etc. Don't force a ticket to exist for this work.
+- **Features, bug fixes, and hotfixes require a Jira ticket.** If the user
+  hasn't already referenced one (a ticket key like `SDP-1234`, a Jira link,
+  or "work on SDP-1234"):
+  1. Draft a concise issue summary and description for the requested work.
+  2. Show the draft to the user and ask them to confirm (or edit) it —
+     never create a ticket silently.
+  3. Once confirmed, create it with the `user-atlassian` MCP server's
+     `createJiraIssue` tool: `cloudId: "boscasolutions.atlassian.net"`,
+     `projectKey: "SDP"`, `issueTypeName: "Bug"` for bug fixes/hotfixes or
+     `"Task"` for features (use `"Story"` instead if it's clearly a larger
+     feature).
+  4. Use the resulting issue key for the branch/PR naming below.
+  - If the `user-atlassian` MCP server isn't connected/authenticated, tell
+    the user and ask them to connect it (Cursor Settings > MCP) rather than
+    skipping the ticket requirement.
+- **Docs, internal plans/runbooks, and other work not tied to a
+  feature/bug/hotfix** stay ticket-free — use the existing free-form,
+  prefixed convention already used in this repo (`docs/<short-title>`,
+  `feature/<short-title>`, `security/<short-title>`, etc.). Don't force a
+  ticket for this work.
+- **Branch name** (once a ticket key is known, from the user or freshly
+  created above): `<ticket-key-lowercase>-<short-kebab-case-title>`, e.g.
+  `sdp-1021-fix-gate-device-replace`. No `feature/`/`fix/` prefix in front
+  of the ticket key — the ticket key itself is the prefix. Keep the title
+  short (roughly 3-6 words).
+- **PR title** (once a ticket key is known): `<TICKET-KEY-UPPERCASE>:
+  <description>`, e.g. `SDP-1021: Fix gate device replace bug`. This
+  matches Jira's GitHub smart-commit/branch-linking conventions.
+- If the user supplies (or you create) the ticket key partway through the
+  work — before a PR is opened — use it for the branch/PR name even if work
+  started under a generic name; rename the branch (`git branch -m`) rather
+  than leaving a placeholder like `sdp-xxx-...`.
