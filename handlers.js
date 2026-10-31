@@ -15,6 +15,13 @@ const SSH_KEY_PATH = "/home/bosca/.ssh/id_rsa";
 const CERT_PATH = "/home/bosca/cert.pem";
 const KEY_PATH = "/home/bosca/key.pem";
 
+// GCP project that holds the shield-logging service account, Cloud Logging and
+// the site-backups bucket (consolidated into this project on 2026-07-22). It
+// MUST match the project_id of /etc/bosca/gcp-credentials.json: `cloudloq
+// backup-site` refuses to run when settings.json and that key disagree.
+// ops-scripts/site/cloudloq_site_register.sh writes the same value.
+const GCP_PROJECT_ID = "cloudloqproduction";
+
 // The template stays pristine; each run renders a fresh copy with the Net2 IP.
 const SAN_TEMPLATE_PATH = path.join(__dirname, "san.cnf");
 const SAN_GENERATED_PATH = path.join(__dirname, "san.generated.cnf");
@@ -120,7 +127,7 @@ async function message(res, payload) {
             CodeMapFile: "event/event_code.json",
             DemoDevicePort: "51211",
             DemoDeviceUseSSL: "false",
-            GCPProjectId: "cairn-integration",
+            GCPProjectId: GCP_PROJECT_ID,
             LogFilePath: "../logs/",
             LogLabelServiceKey: "bosca-shield",
             LogLabelServerSiteIdLabel: "bosca-shield-server-siteid",
